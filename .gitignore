@@ -1,0 +1,60 @@
+# --- Django / Python ---
+*.log
+*.pot
+*.pyc
+*.pyo
+*.pyd
+*.py[cod]
+*$py.class
+__pycache__/
+*.sqlite3
+db.sqlite3
+
+# Django user uploads / collected static (adjust to your project)
+media/
+staticfiles/
+
+# Frontend build output
+frontend/
+
+# --- Secrets / env files ---
+.env
+.env.*
+!.env.example
+venv/
+.venv/
+ENV/
+env/
+env.bak/
+venv.bak/
+
+# --- Django local settings (optional; only if you use these) ---
+local_settings.py
+settings_local.py
+*.local.py
+
+# --- Tests / coverage ---
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+nosetests.xml
+coverage.xml
+
+# --- Packaging / build ---
+build/
+dist/
+*.egg-info/
+.eggs/
+wheels/
+pip-wheel-metadata/
+
+# --- IDEs / editors ---
+.idea/
+.vscode/
+*.swp
+
+# --- OS junk ---
+.DS_Store
+Thumbs.db
