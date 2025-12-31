@@ -1,48 +1,53 @@
 import os
 from pathlib import Path
-import dj_database_url  # Add this import
+import dj_database_url
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# SECURITY WARNING: keep the secret key used in production secret!
-# Use env variable on Render, fallback to dev key locally
-SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-5dmjte#k9h4xm@%_^56q2q*vw0*stb#2h&d$*_%95voo1&+w)-')
+# --- SECURITY CONFIGURATION ---
 
-# SECURITY WARNING: don't run with debug turned on in production!
-# Render sets 'RENDER' env var automatically
+# SECRET_KEY: Get from Env in Prod, use default for Local
+SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-local-dev-key-change-me')
+
+# DEBUG: True locally, False on Render (Render sets the 'RENDER' env var)
 DEBUG = 'RENDER' not in os.environ
 
+# ALLOWED_HOSTS: Add Render URL automatically + Localhost
 ALLOWED_HOSTS = []
 RENDER_EXTERNAL_HOSTNAME = os.environ.get('RENDER_EXTERNAL_HOSTNAME')
 if RENDER_EXTERNAL_HOSTNAME:
     ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
 else:
-    ALLOWED_HOSTS.extend(['127.0.0.1', 'localhost', '192.168.200.10'])
+    ALLOWED_HOSTS.extend(['127.0.0.1', 'localhost', '0.0.0.0'])
 
-# Application definition
+
+# --- APPLICATION DEFINITION ---
+
 INSTALLED_APPS = [
-    'daphne', # Must be at the top
+    'daphne',  # Must be at the top for ASGI/Channels
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    
     # Third-party apps
     'rest_framework',
     'rest_framework_simplejwt',
     'corsheaders',
     'channels',
+    
     # My apps
-    'chat',
+    'chat',  # Ensure this matches your app name
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware', # Add WhiteNoise here
+    'whitenoise.middleware.WhiteNoiseMiddleware',  # Required for static files on Render
     'django.contrib.sessions.middleware.SessionMiddleware',
-    'corsheaders.middleware.CorsMiddleware',
+    'corsheaders.middleware.CorsMiddleware',       # Required for React frontend
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -70,55 +75,21 @@ TEMPLATES = [
 WSGI_APPLICATION = 'talkative.wsgi.application'
 ASGI_APPLICATION = 'talkative.asgi.application'
 
-# Database
-# Automatically use PostgreSQL on Render, SQLite locally
+
+# --- DATABASE ---
+# Render: PostgreSQL (via DATABASE_URL)
+# Local: SQLite
 DATABASES = {
     'default': dj_database_url.config(
-        default='sqlite:///' + str(BASE_DIR / 'db.sqlite3'),
+        default=f'sqlite:///{BASE_DIR / "db.sqlite3"}',
         conn_max_age=600
     )
 }
 
-# Password validation
-AUTH_PASSWORD_VALIDATORS = [
-    {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
-    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
-    {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
-    {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
-]
 
-# Internationalization
-LANGUAGE_CODE = 'en-us'
-TIME_ZONE = 'UTC'
-USE_I18N = True
-USE_TZ = True
-
-# Static files (CSS, JavaScript, Images)
-STATIC_URL = 'static/'
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
-# Enable WhiteNoise compression and caching
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
-
-DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-
-# Django REST Framework settings
-REST_FRAMEWORK = {
-    'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
-    ),
-}
-
-# CORS settings
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    # Add your Vercel app URL here once deployed
-    # "https://your-app-name.vercel.app", 
-]
-
-# Channels settings
+# --- CHANNEL LAYERS (REDIS) ---
 if 'RENDER' in os.environ:
-    # Production Redis (Get REDIS_URL from Render Dashboard)
+    # Production: Use Render Redis URL
     CHANNEL_LAYERS = {
         "default": {
             "BACKEND": "channels_redis.core.RedisChannelLayer",
@@ -128,7 +99,7 @@ if 'RENDER' in os.environ:
         },
     }
 else:
-    # Local Development Redis
+    # Local: Use Local Redis
     CHANNEL_LAYERS = {
         "default": {
             "BACKEND": "channels_redis.core.RedisChannelLayer",
@@ -139,45 +110,88 @@ else:
     }
 
 
-# """
-# Django settings for talkative project.
+# --- PASSWORD VALIDATION ---
+AUTH_PASSWORD_VALIDATORS = [
+    {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
+]
 
-# Generated by 'django-admin startproject' using Django 5.2.8.
 
-# For more information on this file, see
-# https://docs.djangoproject.com/en/5.2/topics/settings/
+# --- INTERNATIONALIZATION ---
+LANGUAGE_CODE = 'en-us'
+TIME_ZONE = 'UTC'
+USE_I18N = True
+USE_TZ = True
 
-# For the full list of settings and their values, see
-# https://docs.djangoproject.com/en/5.2/ref/settings/
-# """
 
+# --- STATIC FILES ---
+STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+# Enable WhiteNoise compression and caching
+if not DEBUG:
+    STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
+
+# --- DRF SETTINGS ---
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
+}
+
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+# --- CORS & CSRF ---
+# If you added CORS_ALLOWED_ORIGINS to Render Env, read it here
+# Example env value: https://myapp.vercel.app,http://localhost:3000
+CORS_ALLOWED_ORIGINS_ENV = os.environ.get('CORS_ALLOWED_ORIGINS')
+
+if CORS_ALLOWED_ORIGINS_ENV:
+    CORS_ALLOWED_ORIGINS = CORS_ALLOWED_ORIGINS_ENV.split(',')
+else:
+    CORS_ALLOWED_ORIGINS = [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ]
+
+# Necessary for Django Admin login on Render
+CSRF_TRUSTED_ORIGINS = []
+if RENDER_EXTERNAL_HOSTNAME:
+    CSRF_TRUSTED_ORIGINS.append(f'https://{RENDER_EXTERNAL_HOSTNAME}')
+
+
+
+
+
+# import os
 # from pathlib import Path
+# import dj_database_url  # Add this import
 
 # # Build paths inside the project like this: BASE_DIR / 'subdir'.
 # BASE_DIR = Path(__file__).resolve().parent.parent
 
-
-# # Quick-start development settings - unsuitable for production
-# # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
-
 # # SECURITY WARNING: keep the secret key used in production secret!
-# SECRET_KEY = 'django-insecure-5dmjte#k9h4xm@%_^56q2q*vw0*stb#2h&d$*_%95voo1&+w)-'
+# # Use env variable on Render, fallback to dev key locally
+# SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-5dmjte#k9h4xm@%_^56q2q*vw0*stb#2h&d$*_%95voo1&+w)-')
 
 # # SECURITY WARNING: don't run with debug turned on in production!
-# DEBUG = False
+# # Render sets 'RENDER' env var automatically
+# DEBUG = 'RENDER' not in os.environ
 
-# ALLOWED_HOSTS = [
-#     '192.168.200.10',
-#     'localhost',
-#     '127.0.0.1',
-#     # Add other hosts if necessary
-# ]
-
+# ALLOWED_HOSTS = []
+# RENDER_EXTERNAL_HOSTNAME = os.environ.get('RENDER_EXTERNAL_HOSTNAME')
+# if RENDER_EXTERNAL_HOSTNAME:
+#     ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
+# else:
+#     ALLOWED_HOSTS.extend(['127.0.0.1', 'localhost', '192.168.200.10'])
 
 # # Application definition
-
 # INSTALLED_APPS = [
-#     'daphne',
+#     'daphne', # Must be at the top
 #     'django.contrib.admin',
 #     'django.contrib.auth',
 #     'django.contrib.contenttypes',
@@ -195,6 +209,7 @@ else:
 
 # MIDDLEWARE = [
 #     'django.middleware.security.SecurityMiddleware',
+#     'whitenoise.middleware.WhiteNoiseMiddleware', # Add WhiteNoise here
 #     'django.contrib.sessions.middleware.SessionMiddleware',
 #     'corsheaders.middleware.CorsMiddleware',
 #     'django.middleware.common.CommonMiddleware',
@@ -224,59 +239,36 @@ else:
 # WSGI_APPLICATION = 'talkative.wsgi.application'
 # ASGI_APPLICATION = 'talkative.asgi.application'
 
-
 # # Database
-# # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
-
+# # Automatically use PostgreSQL on Render, SQLite locally
 # DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.sqlite3',
-#         'NAME': BASE_DIR / 'db.sqlite3',
-#     }
+#     'default': dj_database_url.config(
+#         default='sqlite:///' + str(BASE_DIR / 'db.sqlite3'),
+#         conn_max_age=600
+#     )
 # }
 
-
 # # Password validation
-# # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
-
 # AUTH_PASSWORD_VALIDATORS = [
-#     {
-#         'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
-#     },
-#     {
-#         'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
-#     },
-#     {
-#         'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
-#     },
-#     {
-#         'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
-#     },
+#     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
+#     {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
+#     {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
+#     {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 # ]
 
-
 # # Internationalization
-# # https://docs.djangoproject.com/en/5.2/topics/i18n/
-
 # LANGUAGE_CODE = 'en-us'
-
 # TIME_ZONE = 'UTC'
-
 # USE_I18N = True
-
 # USE_TZ = True
 
-
 # # Static files (CSS, JavaScript, Images)
-# # https://docs.djangoproject.com/en/5.2/howto/static-files/
-
 # STATIC_URL = 'static/'
-
-# # Default primary key field type
-# # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
+# STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+# # Enable WhiteNoise compression and caching
+# STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-
 
 # # Django REST Framework settings
 # REST_FRAMEWORK = {
@@ -289,23 +281,201 @@ else:
 # CORS_ALLOWED_ORIGINS = [
 #     "http://localhost:3000",
 #     "http://127.0.0.1:3000",
-#     "http://192.168.200.10:3000",
+#     # Add your Vercel app URL here once deployed
+#     # "https://your-app-name.vercel.app", 
 # ]
 
 # # Channels settings
-# CHANNEL_LAYERS = {
-#     "default": {
-#         "BACKEND": "channels_redis.core.RedisChannelLayer",
-#         "CONFIG": {
-#             "hosts": [("localhost", 6379)],  # MUST be "localhost", not "127.0.0.1"
+# if 'RENDER' in os.environ:
+#     # Production Redis (Get REDIS_URL from Render Dashboard)
+#     CHANNEL_LAYERS = {
+#         "default": {
+#             "BACKEND": "channels_redis.core.RedisChannelLayer",
+#             "CONFIG": {
+#                 "hosts": [os.environ.get('REDIS_URL')],
+#             },
 #         },
-#     },
-# }
+#     }
+# else:
+#     # Local Development Redis
+#     CHANNEL_LAYERS = {
+#         "default": {
+#             "BACKEND": "channels_redis.core.RedisChannelLayer",
+#             "CONFIG": {
+#                 "hosts": [("127.0.0.1", 6379)],
+#             },
+#         },
+#     }
 
 
-# # For development without Redis
-# # CHANNEL_LAYERS = {
-# #     "default": {
-# #         "BACKEND": "channels.layers.InMemoryChannelLayer"
+# # """
+# # Django settings for talkative project.
+
+# # Generated by 'django-admin startproject' using Django 5.2.8.
+
+# # For more information on this file, see
+# # https://docs.djangoproject.com/en/5.2/topics/settings/
+
+# # For the full list of settings and their values, see
+# # https://docs.djangoproject.com/en/5.2/ref/settings/
+# # """
+
+# # from pathlib import Path
+
+# # # Build paths inside the project like this: BASE_DIR / 'subdir'.
+# # BASE_DIR = Path(__file__).resolve().parent.parent
+
+
+# # # Quick-start development settings - unsuitable for production
+# # # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
+
+# # # SECURITY WARNING: keep the secret key used in production secret!
+# # SECRET_KEY = 'django-insecure-5dmjte#k9h4xm@%_^56q2q*vw0*stb#2h&d$*_%95voo1&+w)-'
+
+# # # SECURITY WARNING: don't run with debug turned on in production!
+# # DEBUG = False
+
+# # ALLOWED_HOSTS = [
+# #     '192.168.200.10',
+# #     'localhost',
+# #     '127.0.0.1',
+# #     # Add other hosts if necessary
+# # ]
+
+
+# # # Application definition
+
+# # INSTALLED_APPS = [
+# #     'daphne',
+# #     'django.contrib.admin',
+# #     'django.contrib.auth',
+# #     'django.contrib.contenttypes',
+# #     'django.contrib.sessions',
+# #     'django.contrib.messages',
+# #     'django.contrib.staticfiles',
+# #     # Third-party apps
+# #     'rest_framework',
+# #     'rest_framework_simplejwt',
+# #     'corsheaders',
+# #     'channels',
+# #     # My apps
+# #     'chat',
+# # ]
+
+# # MIDDLEWARE = [
+# #     'django.middleware.security.SecurityMiddleware',
+# #     'django.contrib.sessions.middleware.SessionMiddleware',
+# #     'corsheaders.middleware.CorsMiddleware',
+# #     'django.middleware.common.CommonMiddleware',
+# #     'django.middleware.csrf.CsrfViewMiddleware',
+# #     'django.contrib.auth.middleware.AuthenticationMiddleware',
+# #     'django.contrib.messages.middleware.MessageMiddleware',
+# #     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+# # ]
+
+# # ROOT_URLCONF = 'talkative.urls'
+
+# # TEMPLATES = [
+# #     {
+# #         'BACKEND': 'django.template.backends.django.DjangoTemplates',
+# #         'DIRS': [],
+# #         'APP_DIRS': True,
+# #         'OPTIONS': {
+# #             'context_processors': [
+# #                 'django.template.context_processors.request',
+# #                 'django.contrib.auth.context_processors.auth',
+# #                 'django.contrib.messages.context_processors.messages',
+# #             ],
+# #         },
+# #     },
+# # ]
+
+# # WSGI_APPLICATION = 'talkative.wsgi.application'
+# # ASGI_APPLICATION = 'talkative.asgi.application'
+
+
+# # # Database
+# # # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
+
+# # DATABASES = {
+# #     'default': {
+# #         'ENGINE': 'django.db.backends.sqlite3',
+# #         'NAME': BASE_DIR / 'db.sqlite3',
 # #     }
 # # }
+
+
+# # # Password validation
+# # # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
+
+# # AUTH_PASSWORD_VALIDATORS = [
+# #     {
+# #         'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
+# #     },
+# #     {
+# #         'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+# #     },
+# #     {
+# #         'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
+# #     },
+# #     {
+# #         'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
+# #     },
+# # ]
+
+
+# # # Internationalization
+# # # https://docs.djangoproject.com/en/5.2/topics/i18n/
+
+# # LANGUAGE_CODE = 'en-us'
+
+# # TIME_ZONE = 'UTC'
+
+# # USE_I18N = True
+
+# # USE_TZ = True
+
+
+# # # Static files (CSS, JavaScript, Images)
+# # # https://docs.djangoproject.com/en/5.2/howto/static-files/
+
+# # STATIC_URL = 'static/'
+
+# # # Default primary key field type
+# # # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
+
+# # DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+# # # Django REST Framework settings
+# # REST_FRAMEWORK = {
+# #     'DEFAULT_AUTHENTICATION_CLASSES': (
+# #         'rest_framework_simplejwt.authentication.JWTAuthentication',
+# #     ),
+# # }
+
+# # # CORS settings
+# # CORS_ALLOWED_ORIGINS = [
+# #     "http://localhost:3000",
+# #     "http://127.0.0.1:3000",
+# #     "http://192.168.200.10:3000",
+# # ]
+
+# # # Channels settings
+# # CHANNEL_LAYERS = {
+# #     "default": {
+# #         "BACKEND": "channels_redis.core.RedisChannelLayer",
+# #         "CONFIG": {
+# #             "hosts": [("localhost", 6379)],  # MUST be "localhost", not "127.0.0.1"
+# #         },
+# #     },
+# # }
+
+
+# # # For development without Redis
+# # # CHANNEL_LAYERS = {
+# # #     "default": {
+# # #         "BACKEND": "channels.layers.InMemoryChannelLayer"
+# # #     }
+# # # }
+
