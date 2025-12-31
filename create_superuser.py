@@ -15,3 +15,9 @@ if not User.objects.filter(username=username).exists():
     print(f"Superuser '{username}' created successfully!")
 else:
     print(f"Superuser '{username}' already exists.")
+
+
+# Temporary hardcode for debugging
+username = "myadmin"
+password = "TestPassword123!" 
+email = "admin@test.com"
